@@ -1,0 +1,13 @@
+{
+  "name": "pumpfun-relay",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vigilante que conecta PumpPortal con n8n",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "dotenv": "^16.4.5"
+  }
+}
