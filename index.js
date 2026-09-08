@@ -56,14 +56,19 @@ function conectar() {
   });
 }
 
+let contadorEventosDesconocidos = 0;
+
 function manejarEvento(evento) {
   if (evento.txType === 'create') {
     manejarCreacion(evento);
   } else if (evento.txType === 'buy' || evento.txType === 'sell') {
     manejarTrade(evento);
+  } else if (contadorEventosDesconocidos < 15) {
+    // Modo diagnóstico: mostramos los primeros 15 eventos "raros" para ver
+    // cómo son de verdad los datos que manda PumpPortal.
+    contadorEventosDesconocidos++;
+    console.log('❓ Evento no reconocido:', JSON.stringify(evento).slice(0, 300));
   }
-  // Si algún día ves en los logs que faltan datos, avísame y ajustamos
-  // los nombres de campo aquí abajo.
 }
 
 async function manejarCreacion(evento) {
