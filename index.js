@@ -125,6 +125,9 @@ function manejarTrade(evento) {
   const subidaPorcentaje =
     ((moneda.marketCapActual - moneda.marketCapInicial) / moneda.marketCapInicial) * 100;
 
+  // Log de progreso: para ver en los Registros que las monedas se están moviendo de verdad
+  console.log(`📊 ${moneda.simbolo}: ${subidaPorcentaje.toFixed(1)}% (mcap actual ${moneda.marketCapActual.toFixed(2)} SOL, inicial ${moneda.marketCapInicial.toFixed(2)} SOL)`);
+
   if (subidaPorcentaje >= GAIN_THRESHOLD_PCT) {
     moneda.avisada = true; // para no avisar dos veces de la misma moneda
     avisarMomentum(evento.mint, moneda, subidaPorcentaje);
