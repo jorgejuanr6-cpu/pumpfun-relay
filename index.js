@@ -20,6 +20,14 @@ const GAIN_THRESHOLD_PCT = Number(process.env.GAIN_THRESHOLD_PCT || 200);
 const PUMPPORTAL_API_KEY = process.env.PUMPPORTAL_API_KEY || '';
 const MIN_COMPRAS = Number(process.env.MIN_COMPRAS || 10);
 
+// --- Copiar a otros traders (opcional) ---
+// Varias direcciones separadas por comas, ej: "direccion1,direccion2,direccion3"
+const TRADER_WALLETS = (process.env.TRADER_WALLETS || '')
+  .split(',')
+  .map((w) => w.trim())
+  .filter((w) => w.length > 0);
+const walletsAVigilar = new Set(TRADER_WALLETS);
+
 // --- Configuración para comprar de verdad ---
 const RPC_URL = process.env.RPC_URL || ''; // la dirección de Helius
 const WALLET_PRIVATE_KEY = process.env.WALLET_PRIVATE_KEY || ''; // tu clave privada, exportada de tu cartera
@@ -53,6 +61,11 @@ if (!N8N_WEBHOOK_URL) {
 
 console.log(`Umbral de subida configurado: ${GAIN_THRESHOLD_PCT}%`);
 console.log(`Mínimo de compras exigido: más de ${MIN_COMPRAS}`);
+if (walletsAVigilar.size > 0) {
+  console.log(`🕵️  Copiando a ${walletsAVigilar.size} wallet(s): ${[...walletsAVigilar].join(', ')}`);
+} else {
+  console.log('🕵️  Copia de traders DESACTIVADA (no hay ninguna wallet en TRADER_WALLETS).');
+}
 console.log(`Venta: stop loss -${STOP_LOSS_PCT}% / trailing desde +${TRAILING_ACTIVATION_PCT}% cayendo -${TRAILING_STOP_PCT}% desde el máximo / tiempo máx ${MAX_HOLD_MINUTES} min (solo antes de despegar)`);
 
 // Aquí guardamos, en memoria, los datos de cada moneda que estamos vigilando.
@@ -70,6 +83,9 @@ function conectar() {
   ws.on('open', () => {
     console.log('✅ Conectado a PumpPortal. Escuchando monedas nuevas...');
     ws.send(JSON.stringify({ method: 'subscribeNewToken' }));
+    if (walletsAVigilar.size > 0) {
+      ws.send(JSON.stringify({ method: 'subscribeAccountTrade', keys: [...walletsAVigilar] }));
+    }
   });
 
   ws.on('message', (data) => {
@@ -141,6 +157,19 @@ async function manejarCreacion(evento) {
 }
 
 function manejarTrade(evento) {
+  // ¿Es una compra de una de las wallets que estamos copiando? Avisamos a n8n aparte,
+  // sea o no una moneda que ya conocíamos.
+  if (evento.txType === 'buy' && walletsAVigilar.has(evento.traderPublicKey)) {
+    console.log(`🕵️  Wallet copiada ha comprado ${evento.mint}. Avisando a n8n...`);
+    enviarAN8n({
+      event_type: 'trader_compra',
+      mint: evento.mint,
+      wallet: evento.traderPublicKey,
+      sol_gastado: evento.solAmount,
+      market_cap_sol: evento.marketCapSol,
+    });
+  }
+
   // Si esta moneda es una posición que hemos comprado, comprobamos si toca vender
   const posicion = posicionesAbiertas.get(evento.mint);
   if (posicion && !posicion.vendiendo && typeof evento.marketCapSol === 'number') {
