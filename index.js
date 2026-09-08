@@ -275,7 +275,13 @@ async function comprarToken(mint) {
 
   // 3. La enviamos a la red de Solana a través de Helius
   const firma = await connection.sendTransaction(tx);
-  console.log(`✅ Compra enviada para ${mint}. Firma: ${firma}`);
+
+  // 3b. Esperamos a que la red confirme que de verdad se ejecutó (no solo que se envió)
+  const confirmacion = await connection.confirmTransaction(firma, 'confirmed');
+  if (confirmacion.value.err) {
+    throw new Error(`La compra se envió pero la red la rechazó: ${JSON.stringify(confirmacion.value.err)}`);
+  }
+  console.log(`✅ Compra confirmada para ${mint}. Firma: ${firma}`);
 
   // 4. Registramos la posición para poder decidir cuándo vender,
   //    y nos aseguramos de seguir recibiendo sus trades (por si ya la habíamos dejado de vigilar)
@@ -324,7 +330,11 @@ async function venderToken(mint) {
   tx.sign([signerKeypair]);
 
   const firma = await connection.sendTransaction(tx);
-  console.log(`✅ Venta enviada para ${mint}. Firma: ${firma}`);
+  const confirmacion = await connection.confirmTransaction(firma, 'confirmed');
+  if (confirmacion.value.err) {
+    throw new Error(`La venta se envió pero la red la rechazó: ${JSON.stringify(confirmacion.value.err)}`);
+  }
+  console.log(`✅ Venta confirmada para ${mint}. Firma: ${firma}`);
   return firma;
 }
 
@@ -378,7 +388,24 @@ function comprobarSalida(mint, posicion, marketCapActual) {
       });
     })
     .catch((err) => {
-      console.error(`❌ Error vendiendo ${mint}:`, err.message);
+      // Este error significa que en realidad no tenemos nada de esta moneda
+      // (la compra nunca llegó a confirmarse de verdad). No tiene sentido reintentar.
+      const esPosicionFantasma = err.message.includes('SellZeroAmount') || err.message.includes('0x1786');
+      if (esPosicionFantasma) {
+        console.error(`⚠️  ${mint}: la compra nunca se confirmó (no hay nada que vender). Se descarta esta posición.`);
+        posicionesAbiertas.delete(mint);
+        return;
+      }
+
+      posicion.intentosVenta = (posicion.intentosVenta || 0) + 1;
+      console.error(`❌ Error vendiendo ${mint} (intento ${posicion.intentosVenta}/5):`, err.message);
+
+      if (posicion.intentosVenta >= 5) {
+        console.error(`⚠️  ${mint}: han fallado 5 intentos de venta seguidos. Se abandona esta posición.`);
+        posicionesAbiertas.delete(mint);
+        return;
+      }
+
       posicion.vendiendo = false; // lo intentaremos otra vez en el siguiente trade
     });
 }
