@@ -14,6 +14,7 @@ import 'dotenv/config';
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const GAIN_THRESHOLD_PCT = Number(process.env.GAIN_THRESHOLD_PCT || 200);
+const PUMPPORTAL_API_KEY = process.env.PUMPPORTAL_API_KEY || '';
 
 if (!N8N_WEBHOOK_URL) {
   console.error('❌ Falta la variable N8N_WEBHOOK_URL. Configúrala y reinicia.');
@@ -29,7 +30,10 @@ const monedasVigiladas = new Map();
 let ws;
 
 function conectar() {
-  ws = new WebSocket('wss://pumpportal.fun/api/data');
+  const url = PUMPPORTAL_API_KEY
+    ? `wss://pumpportal.fun/api/data?api-key=${PUMPPORTAL_API_KEY}`
+    : 'wss://pumpportal.fun/api/data';
+  ws = new WebSocket(url);
 
   ws.on('open', () => {
     console.log('✅ Conectado a PumpPortal. Escuchando monedas nuevas...');
