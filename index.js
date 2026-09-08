@@ -15,6 +15,7 @@ import 'dotenv/config';
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const GAIN_THRESHOLD_PCT = Number(process.env.GAIN_THRESHOLD_PCT || 200);
 const PUMPPORTAL_API_KEY = process.env.PUMPPORTAL_API_KEY || '';
+const MIN_COMPRAS = Number(process.env.MIN_COMPRAS || 10);
 
 if (!N8N_WEBHOOK_URL) {
   console.error('❌ Falta la variable N8N_WEBHOOK_URL. Configúrala y reinicia.');
@@ -22,6 +23,7 @@ if (!N8N_WEBHOOK_URL) {
 }
 
 console.log(`Umbral de subida configurado: ${GAIN_THRESHOLD_PCT}%`);
+console.log(`Mínimo de compras exigido: más de ${MIN_COMPRAS}`);
 
 // Aquí guardamos, en memoria, los datos de cada moneda que estamos vigilando.
 // Cuando el programa se reinicia, esta lista se vacía (es normal).
@@ -137,7 +139,7 @@ function manejarTrade(evento) {
   // Log de progreso: para ver en los Registros que las monedas se están moviendo de verdad
   console.log(`📊 ${moneda.simbolo}: ${subidaPorcentaje.toFixed(1)}% (mcap actual ${moneda.marketCapActual.toFixed(2)} SOL, inicial ${moneda.marketCapInicial.toFixed(2)} SOL)`);
 
-  if (subidaPorcentaje >= GAIN_THRESHOLD_PCT) {
+  if (subidaPorcentaje >= GAIN_THRESHOLD_PCT && moneda.compras > MIN_COMPRAS) {
     moneda.avisada = true; // para no avisar dos veces de la misma moneda
     avisarMomentum(evento.mint, moneda, subidaPorcentaje);
 
