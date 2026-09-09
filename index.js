@@ -454,13 +454,22 @@ const app = express();
 app.use(express.json());
 
 app.post('/comprar', async (req, res) => {
-  const { mint } = req.body || {};
+  const { mint, origen } = req.body || {};
   if (!mint) {
     return res.status(400).json({ ok: false, error: 'Falta el mint en la petición' });
   }
   try {
     const firma = await comprarToken(mint);
-    res.json({ ok: true, signature: firma, url: `https://solscan.io/tx/${firma}` });
+    const moneda = monedasVigiladas.get(mint);
+    res.json({
+      ok: true,
+      mint,
+      nombre: moneda ? moneda.nombre : '',
+      simbolo: moneda ? moneda.simbolo : '',
+      origen: origen || 'momentum',
+      signature: firma,
+      url: `https://solscan.io/tx/${firma}`,
+    });
   } catch (err) {
     console.error('❌ Error al comprar:', err.message);
     res.status(500).json({ ok: false, error: err.message });
